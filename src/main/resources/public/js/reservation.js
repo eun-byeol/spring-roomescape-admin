@@ -1,5 +1,7 @@
 let isEditing = false;
 const RESERVATION_API_ENDPOINT = '/reservations';
+const TIME_API_ENDPOINT = '/times';
+const timesOptions = [];
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('add-button').addEventListener('click', addInputRow);
@@ -7,23 +9,54 @@ document.addEventListener('DOMContentLoaded', () => {
   requestRead(RESERVATION_API_ENDPOINT)
       .then(render)
       .catch(error => console.error('Error fetching reservations:', error));
+
+  fetchTimes();
 });
 
 function render(data) {
   const tableBody = document.getElementById('table-body');
   tableBody.innerHTML = '';
 
-  data.forEach(item => {
+  data.data.forEach(item => {
     const row = tableBody.insertRow();
 
     row.insertCell(0).textContent = item.id;
     row.insertCell(1).textContent = item.name;
     row.insertCell(2).textContent = item.date;
-    row.insertCell(3).textContent = item.time;
+    row.insertCell(3).textContent = item.time.startAt;
 
     const actionCell = row.insertCell(row.cells.length);
     actionCell.appendChild(createActionButton('삭제', 'btn-danger', deleteRow));
   });
+}
+
+function fetchTimes() {
+  requestRead(TIME_API_ENDPOINT)
+      .then(data => {
+        timesOptions.push(...data);
+      })
+      .catch(error => console.error('Error fetching time:', error));
+}
+
+function createSelect(options, defaultText, selectId, textProperty) {
+  const select = document.createElement('select');
+  select.className = 'form-control';
+  select.id = selectId;
+
+  // 기본 옵션 추가
+  const defaultOption = document.createElement('option');
+  defaultOption.textContent = defaultText;
+  select.appendChild(defaultOption);
+
+  // 넘겨받은 옵션을 바탕으로 드롭다운 메뉴 아이템 생성
+  options.forEach(optionData => {
+    const option = document.createElement('option');
+    option.value = optionData.id;
+    option.textContent = optionData[textProperty]; // 동적 속성 접근
+    select.appendChild(option);
+  });
+
+  return select;
 }
 
 function createActionButton(label, className, eventListener) {
@@ -43,9 +76,9 @@ function addInputRow() {
 
   const nameInput = createInput('text');
   const dateInput = createInput('date');
-  const timeInput = createInput('time');
+  const timeDropdown = createSelect(timesOptions, "시간 선택", 'time-select', 'startAt');
 
-  const cellFieldsToCreate = ['', nameInput, dateInput, timeInput];
+  const cellFieldsToCreate = ['', nameInput, dateInput, timeDropdown];
 
   cellFieldsToCreate.forEach((field, index) => {
     const cell = row.insertCell(index);
@@ -86,12 +119,12 @@ function saveRow(event) {
   const row = event.target.parentNode.parentNode;
   const nameInput = row.querySelector('input[type="text"]');
   const dateInput = row.querySelector('input[type="date"]');
-  const timeInput = row.querySelector('input[type="time"]');
+  const timeSelect = row.querySelector('select');
 
   const reservation = {
     name: nameInput.value,
     date: dateInput.value,
-    time: timeInput.value
+    timeId: timeSelect.value
   };
 
   requestCreate(reservation)
